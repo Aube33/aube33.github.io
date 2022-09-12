@@ -187,10 +187,12 @@ TEXT_appMenu_SPOTIFY.addEventListener("focusout", async function(e){
 
 //= Deezer integration =
 async function getJsonPlaylistDeezer(playlistID, offset) {
-    let response = await fetch('https://api.deezer.com/playlist/'+playlistID+ "/tracks?index="+offset+"&limit="+trackLimit, {
+    let response = await fetch('https://cors-anywhere.herokuapp.com/http://api.deezer.com/playlist/'+playlistID+ "/tracks?index="+offset+"&limit="+trackLimit+"&request_method=GET", {
         method: 'GET',
-        'Access-Control-Allow-Origin': '*',
-        'Accept': 'application/json',
+        'Access-Control-Allow-Credentials' : true,
+        'Access-Control-Allow-Origin':'*',
+        'Access-Control-Allow-Methods':'GET',
+        'Access-Control-Allow-Headers':'application/json',
     })
     let data = await response.json()
     return data;
