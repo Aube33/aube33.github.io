@@ -1,11 +1,10 @@
 # ALBUMS COVER GRID GENERATOR
 
-## Create your own wallpaper for your phone with a cool grid of your favorites albums cover !
+## Create your own wallpaper for your phone or desktop with a cool grid of your favorites albums cover !
 
 
 ## ⚠️ **Warning** :
   - This project is currently in beta, some bugs can appears during your creation !
-  - Only phone wallpapers are working for the moment !
 
 ## 🌐 **Website** :
   **→** [Click on me](https://aube33.github.io) to access !
@@ -15,10 +14,10 @@
 
 
 ## ✅ **Roadmap** :
-  - ✅ Better background color picker
-  - ✅ Export quality parameter
-  - ✅ Compatibility with all viewport
-  - ✅ Good website look
-  - ✅ Spotify implementation
-  - ✅ Deezer implementation
-  - ▢ ...
+  - * [x] Better background color picker
+  - * [x] Export quality parameter
+  - * [x] Compatibility with all viewport
+  - * [x] Good website look
+  - * [x] Spotify implementation
+  - * [x] Deezer implementation
+  - * [ ] ...
