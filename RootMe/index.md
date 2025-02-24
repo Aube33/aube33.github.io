@@ -4,7 +4,27 @@ title: RootMe
 permalink: /rootme/
 ---
 
-# Here are my RootMe write ups
+```
+      (\\  _                      ___
+     .-"`"(\\                _.""`   `"-.
+    /      ` `-._        _.-"            `\__
+   6   6)        `-.__.-'                    `",
+  /                                         `;-`
+ /     ,                                     |
+()    /  /`                                  |
+ `---`"~``\                                  |
+           \                                 |
+            \            \      /           /
+            /`,   ,      |     |           /
+           /   "-.|      |     |         /'
+          /     / |     /,__   |       /`\
+         /    /'  |    /    `"'\      (   \
+      __/   /'    |   |         `\     \   \
+      \    /      |   |           `\    \   \
+       `-,/      /    |            /     |-"`
+                `"""^^^           `^^""""`
+```
+# RootMe Write-ups ✍️
 
 ### App - Script
 - [Bash-unquoted-expression-injection](/app-script/bash-unquoted-expression-injection)

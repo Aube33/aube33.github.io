@@ -1,6 +1,6 @@
 ---
 layout: default
-title: RootMe
+title: RootMe - Bash unquoted expression injection
 permalink: /app-script/bash-unquoted-expression-injection
 ---
 

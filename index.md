@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Aube super website
+title: ʕ·͡ᴥ·ʔ
 permalink: /
 ---
 
@@ -35,4 +35,4 @@ permalink: /
 
 This website contains my write-ups, resources, useful links, and many things to help me or others.
 
-⚠️ **It's still in development, so be kind.** ⚠️
+> ⚠️ **It's still in development, so be kind.** ⚠️

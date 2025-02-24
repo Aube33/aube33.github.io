@@ -1,6 +1,6 @@
 ---
 layout: default
-title: RootMe
+title: RootMe - ELF x86 Basic
 permalink: /cracking/elf-x86-basic
 ---
 
