@@ -1,6 +1,7 @@
 theme: jekyll-theme-minimal
 title: Aube's homepage
-description: Things
+logo: /assets/img/pp-aube-zoom.png
+
 plugins:
   - jekyll-relative-links
 relative_links:
