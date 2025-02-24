@@ -72,9 +72,6 @@ Like classic injections, our goal is to force the condition to validate.
 
 With this argument: `"0 -o True"` script condition became
 ```bash
-if test $PASS -eq 0 -o True 2>/dev/null; then
-```
-```bash
 #!/bin/bash
     
 #PATH=$(/usr/bin/getconf PATH || /bin/kill $$)
@@ -87,7 +84,7 @@ if test -z "${1}"; then
     exit 1
 fi
     
-if test $PASS -eq 0 -o True 2>/dev/null; then
+if test $PASS -eq 0 -o True 2>/dev/null; then # Condition change here
     echo "Well done you can validate the challenge with : $PASS"
 else
     echo "Try again ,-)"
