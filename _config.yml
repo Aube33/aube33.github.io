@@ -16,3 +16,10 @@ include:
   - ISSUE_TEMPLATE.md
   - PULL_REQUEST_TEMPLATE.md
 
+nav:
+  - title: Home
+    url: /
+  - title: RootMe
+    url: /
+  - title: À propos
+    url: /about/
