@@ -8,3 +8,6 @@ permalink: /rootme/
 
 ### App - Script
 - [Bash-unquoted-expression-injection](/app-script/bash-unquoted-expression-injection)
+
+### Cracking
+- [ELF x86 - Basic](/cracking/elf-x86-basic)
