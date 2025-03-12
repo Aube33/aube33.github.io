@@ -37,3 +37,6 @@ permalink: /rootme/
 
 ### Web - Client
 - [Web Client - XSS Reflected](/web-client/xss-reflected)
+
+### Web - Server
+- [Web Server - XSS - Server Side](/web-server/xss-server-side)
