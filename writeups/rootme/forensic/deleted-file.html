@@ -1,0 +1,118 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<style>
+  * {
+    color: purple;
+  }
+</style>
+<div style="background-color: #dee37d; padding: 10px; border: 10px ridge purple;">
+  <h1 id="deleted-file">Deleted file</h1>
+  <h2 id="statement">Statement</h2>
+  <p>Your cousin found a USB drive in the library this morning. He’s not very good with computers, so he’s hoping you
+    can find the owner of this stick!</p>
+  <p>The flag is the owner’s identity in the form firstname_lastname</p>
+  <p>sha256sum: cd9f4ada5e2a97ec6def6555476524712760e3d8ee99c26ec2f11682a1194778</p>
+  <h2 id="analyze">Analyze</h2>
+  <p>Let&#39;s download the file (ch39.gz). After decompresing, the file usb.image was extracted, and with
+    <code>file</code> command we get :
+  </p>
+  <pre><code class="lang-bash">$ file usb<span class="hljs-selector-class">.image</span>
+      usb<span class="hljs-selector-class">.image</span>: DOS/MBR boot sector, <span
+        class="hljs-selector-tag">code</span> offset <span class="hljs-number">0</span>x3c+<span
+        class="hljs-number">2</span>, OEM-ID <span class="hljs-string">"mkfs.fat"</span>, sectors/cluster <span
+        class="hljs-number">4</span>, reserved sectors <span class="hljs-number">4</span>, root entries <span
+        class="hljs-number">512</span>, sectors <span class="hljs-number">63488</span> (volumes &lt;=<span
+        class="hljs-number">32</span> MB), Media descriptor <span class="hljs-number">0</span>xf8, sectors/FAT <span
+        class="hljs-number">64</span>, sectors/track <span class="hljs-number">62</span>, heads <span
+        class="hljs-number">124</span>, hidden sectors <span class="hljs-number">2048</span>, reserved <span
+        class="hljs-number">0</span>x1, serial number <span class="hljs-number">0</span>xc7ecde5b, <span
+        class="hljs-selector-tag">label</span>: <span class="hljs-string">"USB "</span>, FAT (<span
+        class="hljs-number">16</span> bit)
+    </code></pre>
+  <p>So our file is a MBR partition in FAT16 with &quot;USB&quot; as label.
+    Let&#39;s see what we found with file carving tool like <strong>Testdisk</strong>.</p>
+  <h2 id="exploitation">Exploitation</h2>
+  <pre><code>TestDisk 7.2, Data Recovery Utility, February<span class="hljs-number"> 2024 </span>
+      Christophe GRENIER &lt;grenier@cgsecurity.org&gt;
+      https://www.cgsecurity.org
+
+      Disk usb.image -<span class="hljs-number"> 32 </span>MB /<span class="hljs-number"> 31 </span>MiB - CHS<span
+        class="hljs-number"> 9 </span>124<span class="hljs-number"> 62 </span>
+
+      Partition Start End Size in sectors
+      &gt; P FAT16 <span class="hljs-number"> 0 </span> <span class="hljs-number"> 0 </span><span class="hljs-number"> 1
+      </span> <span class="hljs-number"> 8 </span><span class="hljs-number"> 31 </span>62 <span class="hljs-number">
+        63488 </span>[USB]
+    </code></pre>
+  <p>Testdisk confirm what we see above, a FAT16 partition with 63488 sectors.</p>
+  <p>Booting image with Testdisk give us that</p>
+  <pre><code>TestDisk 7.2, Data Recovery Utility, February<span class="hljs-number"> 2024 </span>
+      Christophe GRENIER &lt;grenier@cgsecurity.org&gt;
+      https://www.cgsecurity.org
+      P FAT16 <span class="hljs-number"> 0 </span> <span class="hljs-number"> 0 </span><span class="hljs-number"> 1
+      </span> <span class="hljs-number"> 8 </span><span class="hljs-number"> 31 </span>62 <span class="hljs-number">
+        63488 </span>[USB]
+      Directory /
+
+      &gt;-rwxr-xr-x <span class="hljs-number"> 0 </span> <span class="hljs-number"> 0 </span> <span
+        class="hljs-number"> 246064 </span>12-Sep-2021 16:05 anonyme.png
+    </code></pre>
+  <p>An <code>anonyme.png</code> file deleted (because it&#39;s in red but you can&#39;t see that) from
+    <code>usb.image</code>. But when copying the .png with Testdisk our image seems corrupted :/
+  </p>
+  <p>So we are going to try with another tool named <strong>Foremost</strong></p>
+  <pre><code class="lang-bash">$ foremost -i usb.image
+      <span class="hljs-symbol">Processing:</span> usb.image
+      <span class="hljs-params">|*|</span>
+
+      $ tree output
+      output
+      ├── audit.txt
+      └── png
+      └── <span class="hljs-number">0000016</span>8.png
+
+      <span class="hljs-number">2</span> directories, <span class="hljs-number">2</span> files
+    </code></pre>
+  <p>This time our .png is fully recovered, it&#39;s a picture of trees and sky but that doesn&#39;t give any
+    information. So we use <strong>exiftool</strong> to get the <a
+      href="https://fr.wikipedia.org/wiki/Exchangeable_image_file_format">EXIF</a> datas.</p>
+  <pre><code>$ exiftool <span class="hljs-number">00000168</span>.png
+      ExifTool Version Number : 13.10
+      File Name : 00000168.<span class="hljs-type">png</span>
+      Directory : .
+      File Size : 246 <span class="hljs-type">kB</span>
+      File Modification Date/Time : 2025:02:25 04:58:19-05:00
+      File <span class="hljs-keyword">Access</span> Date/Time : 2025:02:25 04:58:20-05:00
+      File Inode Change Date/Time : 2025:02:25 04:58:19-05:00
+      File Permissions : -<span class="hljs-type">rwxrwx</span><span class="hljs-comment">---</span>
+      File <span class="hljs-keyword">Type</span> <span class="hljs-type">: </span>PNG
+      File <span class="hljs-keyword">Type</span> <span class="hljs-type">Extension </span>: png
+      MIME <span class="hljs-keyword">Type</span> <span class="hljs-type">: </span>image/png
+      Image Width : 400
+      Image Height : 300
+      Bit Depth : 8
+      Color <span class="hljs-keyword">Type</span> <span class="hljs-type">: </span>RGB
+      Compression : <span class="hljs-type">Deflate</span>/Inflate
+      Filter : <span class="hljs-type">Adaptive</span>
+      Interlace : <span class="hljs-type">Noninterlaced</span>
+      Gamma : 2.2
+      White Point X : 0.3127
+      White Point Y : 0.329
+      Red X : 0.64
+      Red Y : 0.33
+      Green X : 0.3
+      Green Y : 0.6
+      Blue X : 0.15
+      Blue Y : 0.06
+      Background Color : 255 255 255
+      XMP Toolkit : <span class="hljs-type">Image</span>::ExifTool <span class="hljs-number">11.88</span>
+      Creator : <span class="hljs-type">Firstname</span> Lastname
+      Image Size : 400<span class="hljs-type">x300</span>
+      Megapixels : 0.120
+    </code></pre>
+  <p>We found firstname and lastname of author, we can validate the chall with flag like indicate in statement:
+    firstname_lastname.</p>
+</div>
+
+<script>hljs.highlightAll();</script>

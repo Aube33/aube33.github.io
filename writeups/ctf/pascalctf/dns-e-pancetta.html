@@ -1,0 +1,161 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<style>
+  img {
+    max-width: 100%;
+  }
+</style>
+<div style="background-color: #ecc6a0; padding: 10px; border: 10px ridge lightblue;">
+  <h1 id="dns-e-pancetta">DNS e pancetta</h1>
+  <h2 id="statement">Statement</h2>
+  <p>I&#39;ve recently started studying a new cooking book and I think I&#39;ve found the best recipe ever.
+    Do you wanna read it? Ask my dear friend DNS!</p>
+  <h2 id="analyze">Analyze</h2>
+  <p>We have a file named <code>pancetta.pcapng</code> with these records
+    <img src="/images/ctf/pascalctf/pascalctf-1.png" alt="pancetta.pcapng records from Wireshark"
+      title="pancetta.pcapng records from Wireshark">
+  </p>
+  <p>It&#39;s a classic case of <strong>DNS exfiltration</strong>. We need to process all packets with the DNS protocol,
+    get their DNS queries and assemble them to get exfiltrated data.</p>
+  <h2 id="exploitation">Exploitation</h2>
+  <p>Using <a href="https://pypi.org/project/scapy/">Scapy</a> python package we can extract our datas.</p>
+  <pre><code class="lang-py"><span class="hljs-keyword">from</span> scapy.all <span class="hljs-keyword">import</span>
+      rdpcap, DNSQR
+
+      <span class="hljs-function"><span class="hljs-keyword">def</span> <span
+          class="hljs-title">extract_dns_requests</span><span class="hljs-params">(pcap_file)</span>:</span>
+      <span class="hljs-string">"""
+        Filter pcap file to extract only DNS
+        """</span>
+      packets = rdpcap(pcap_file)
+
+      dns_requests = []
+      <span class="hljs-keyword">for</span> packet <span class="hljs-keyword">in</span> packets:
+      <span class="hljs-keyword">if</span> packet.haslayer(DNSQR):
+      qname = packet[DNSQR].qname.decode(<span class="hljs-string">'utf-8'</span>).strip(<span
+        class="hljs-string">'.'</span>)
+      dns_requests.append(qname)
+
+      <span class="hljs-keyword">return</span> dns_requests
+
+      <span class="hljs-function"><span class="hljs-keyword">def</span> <span
+          class="hljs-title">sanitize_domains</span><span class="hljs-params">(domains_list)</span>:</span>
+      <span class="hljs-string">"""
+        Sanitize domains for output in bytes and remove duplicates
+        """</span>
+      sanitized_domains = []
+      seen = set()
+
+      <span class="hljs-keyword">for</span> domain <span class="hljs-keyword">in</span> domains_list:
+      segments = domain.split(<span class="hljs-string">"."</span>)
+      <span class="hljs-keyword">if</span> len(segments) &gt; <span class="hljs-number">2</span>:
+      domain = <span class="hljs-string">"."</span>.join(segments[:<span class="hljs-number">-2</span>])
+
+      <span class="hljs-keyword">if</span> domain <span class="hljs-keyword">not</span> <span
+        class="hljs-keyword">in</span> seen:
+      sanitized_domains.append(domain.strip())
+      seen.add(domain)
+
+      sanitized_domains = [domain.replace(<span class="hljs-string">"."</span>,<span class="hljs-string">""</span>)
+      <span class="hljs-keyword">for</span> domain <span class="hljs-keyword">in</span> sanitized_domains]
+      <span class="hljs-keyword">return</span> sanitized_domains
+
+
+      <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">hex_to_text</span><span
+          class="hljs-params">(hex_string)</span>:</span>
+      <span class="hljs-string">"""
+        Transform hexa DNS exfiltration to text
+        """</span>
+      bytes_object = bytes.fromhex(hex_string)
+      <span class="hljs-keyword">return</span> bytes_object.decode(<span class="hljs-string">"utf-8"</span>,
+      errors=<span class="hljs-string">"ignore"</span>)
+
+      <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">save_to</span><span
+          class="hljs-params">(domains_list, mode=<span class="hljs-string">"text"</span>, output=<span
+            class="hljs-string">"output_dns_exfiltration"</span>)</span>:</span>
+      <span class="hljs-string">"""
+        Export results to file
+        """</span>
+
+      <span class="hljs-keyword">if</span> mode==<span class="hljs-string">"text"</span>:
+      <span class="hljs-keyword">with</span> open(output, <span class="hljs-string">"w"</span>) <span
+        class="hljs-keyword">as</span> f:
+      f.write(hex_to_text(<span class="hljs-string">""</span>.join(domains_list)))
+      <span class="hljs-keyword">if</span> mode==<span class="hljs-string">"hex"</span>:
+      <span class="hljs-keyword">with</span> open(output, <span class="hljs-string">"w"</span>) <span
+        class="hljs-keyword">as</span> f:
+      f.write(<span class="hljs-string">""</span>.join(domains_list))
+
+      <span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">"__main__"</span>:
+      pcap_path = <span class="hljs-string">"pancetta.pcapng"</span>
+
+      print(<span class="hljs-string">"[*] Extracting DNS requests..."</span>)
+      dns_requests = extract_dns_requests(pcap_path)
+      print(f<span class="hljs-string">"Total DNS requests found : {len(dns_requests)}"</span>)
+
+      <span class="hljs-keyword">if</span> len(dns_requests) &gt; <span class="hljs-number">0</span>:
+      print(f<span class="hljs-string">"\n[!] Total domains found : {len(dns_requests)}"</span>)
+
+      domains = sanitize_domains(dns_requests)
+      save_to(domains, <span class="hljs-string">"hex"</span>)
+      <span class="hljs-keyword">else</span>:
+      print(<span class="hljs-string">"\nNo suspicious domain found."</span>)
+    </code></pre>
+  <p>After executing python code above we get our file <code>output_dns_exfiltration</code>:</p>
+  <pre><code><span class="hljs-function"><span class="hljs-title">attackercom4c6f72656d20697073756d</span></span>...
+    </code></pre>
+  <p>Remove <code>attackercom</code> from the beginning and pass file content to <a
+      href="https://gchq.github.io/CyberChef">Cyberchef</a> with <strong>From Hex</strong> filter.</p>
+  <p>Result:</p>
+  <pre><code>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam lobortis id magna a vulputate. Proin id
+      euismod nibh. Morbi sodales arcu a ex consectetur, ut gravida sapien facilisis. Proin porttitor tellus iaculis
+      pretium porttitor. Nullam vel est ac est <span class="hljs-keyword">dictum </span>sagittis id ut sapien. Aliquam
+      convallis ipsum sapien, sed molestie quam laoreet eget. Cras velit augue, mollis sed imperdiet sed, varius in
+      purus. Aliquam quis fermentum elit. Integer vulputate vestibulum maximus. Fusce consectetur mattis dui sed
+      laoreet. Aliquam tristique <span class="hljs-keyword">justo </span>in eros ullamcorper, <span
+        class="hljs-built_in">at</span> finibus ante hendrerit.
+      Aliquam id porta ex, in malesuada metus. Suspendisse quam purus, sodales quis imperdiet hendrerit, dapibus ac
+      augue. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Nullam interdum
+      id turpis ac <span class="hljs-keyword">blandit. </span>Vivamus sed felis quis lacus sodales semper ac id sapien.
+      Integer ultricies tempor vehicula. Phasellus tincidunt aliquam lectus, a tempor odio varius vitae.
+      Vestibulum vel consequat mi. Duis malesuada vitae lacus vel aliquam. Maecenas erat odio, lobortis nec ipsum non,
+      porta iaculis nisl. Ut eu erat quis dolor dapibus dapibus. Vestibulum <span class="hljs-keyword">scelerisque
+      </span>suscipit maximus. Interdum et malesuada fames ac ante ipsum primis in faucibus. Etiam sollicitudin luctus
+      pulvinar. Phasellus consante ullamcorper massa pretium, quis semper sem porttitor. Ut non vehicula <span
+        class="hljs-keyword">justo, </span>sit amet <span class="hljs-keyword">ornare </span>tortor.
+      Aenean in ante a nisl <span class="hljs-keyword">scelerisque </span>interdum vitae quis sem. Nulla facilisi. Nulla
+      ut lacus sagittis, tristique dolor vitae, imperdiet leo. Morbi venenatis massa sit amet <span
+        class="hljs-keyword">diam </span>consequat varius. Aenean quis venenatis massa. Quisque ac sagittis velit.
+      Quisque ultrices sodales metus, eu mattis sapien luctus commodo. Praesent sapien ipsum, ultrices non dolor et,
+      <span class="hljs-keyword">ornare </span><span class="hljs-keyword">blandit </span><span
+        class="hljs-keyword">justo. </span>Curabitur iaculis lectus sit amet nibh commodo consequat. Donec mollis risus
+      a neque malesuada, eu <span class="hljs-keyword">dignissim </span>massa posuere. Praesent suscipit finibus turpis.
+      Praesent nibh <span class="hljs-keyword">orci, </span>dapibus eu augue eget, condimentum vehicula <span
+        class="hljs-keyword">justo. </span>Etiam ultrices et metus quis cursus. Pellentesque odio risus, <span
+        class="hljs-keyword">ornare </span>ut mi in, pulvinar tincidunt ante. Sed luctus auctor <span
+        class="hljs-keyword">dignissim. </span>Nunc ultrices, massa eu facilisis congue, erat lectus facilisis felis, eu
+      sagittis <span class="hljs-keyword">diam </span>sem ut tellus.
+      Cras auctor sem libero, id <span class="hljs-keyword">bibendum </span>lacus aliquam sit amet. Sed vel egestas
+      urna. Etiam feugiat, felis sed fringilla <span class="hljs-keyword">blandit, </span>augue tortor sagittis neque,
+      <span class="hljs-built_in">at</span> eleifend mauris tortor a purus. Vivamus vitae tristique <span
+        class="hljs-keyword">justo. </span>In volutpat nulla ac ipsum hendrerit, a ull enim dapibus. C nulla <span
+        class="hljs-keyword">diam, </span><span class="hljs-keyword">bibendum </span>sed libero et, mattis pharetra
+      eros. Aenean lobortis, nibh ac tincidunt <span class="hljs-keyword">blandit, </span>sapien nisi ultrices quam, nec
+      rhoncus nibh <span class="hljs-keyword">diam </span>vel magna. Donec quis <span class="hljs-keyword">orci
+      </span>eget leo mattis lacinia. Phasellus <span class="hljs-keyword">blandit </span>nibh suscipit tortor commodo,
+      sit amet mattis magna sagittis. Vestibulum aibus <span class="hljs-keyword">orci </span>luctus et ultrices posuere
+      cubilia curae<span class="hljs-comment">; Nunc maximus mauris magna. Pellentesque efficitur pellentesque metuset
+        tristique orci consectetur id. Proin t turpis et feugiat laoreet. Quisque in mattis elit. Duis laoreet fringilla
+        neque, sed blandit lacus pretium id. </span>
+      Lol you now know all about lorem ipsum pascalCTF{DNS_b34coning_4ll_over_the_place}
+    </code></pre>
+  <p>Flag: <strong>pascalCTF{DNS_b34coning_4ll_over_the_place}</strong></p>
+  <h2 id="how-does-it-work-">How does it work ?</h2>
+  <p>DNS Exfiltration is an attack used to exfiltrate datas using DNS protocol with DNS query.
+    Firewalls and security systems generally allowed DNS trafic, hidden data has a chance to leave the target
+    network.<br>
+    One big limitation of using DNS to transfer data is that the DNS message length is limited to 255 bytes.</p>
+  >
+
+  <script>hljs.highlightAll();</script>

@@ -1,0 +1,71 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<div style="background-color: #ecc6a0; padding: 10px; border: 10px ridge lightblue;">
+  <h1 id="elf-x86-basic">ELF x86 - Basic</h1>
+  <h2 id="statement">Statement</h2>
+  <p>Find the validation password.</p>
+  <h2 id="analyze">Analyze</h2>
+  <p>Let&#39;s download the file (ch2.zip). After unzipping the file ch2.bin was extracted, and if we execute it:</p>
+  <pre><code class="lang-bash">aube@BigMakOS: Downloads$ ./ch2.bin
+      ############################################################
+      ## Bienvennue dans ce challenge de cracking ##
+      ############################################################
+
+      username: aube
+      Bad username
+    </code></pre>
+  <p>Our objective is to explore the code of the executable to find the correct username.</p>
+  <h2 id="exploitation">Exploitation</h2>
+  <p>So we need to decompile our program, for that I will use <a href="https://ghidra-sre.org/">Ghidra</a>.</p>
+  <p>Import the .bin into Ghidra, analyze it and we obtain decompiled program translated in pseudo-code C-like,
+    let&#39;s analyze the decompiled code:</p>
+  <pre><code class="language-c"><span class="hljs-function">undefined4 <span class="hljs-title">main</span><span
+          class="hljs-params">(<span class="hljs-keyword">void</span>)</span>
+
+      </span>{
+      <span class="hljs-keyword">char</span> *pcVar1;
+      <span class="hljs-keyword">int</span> iVar2;
+      undefined4 local_10;
+
+      <span class="hljs-built_in">puts</span>(<span
+        class="hljs-string">"############################################################"</span>);
+      <span class="hljs-built_in">puts</span>(<span class="hljs-string">"## Bienvennue dans ce challenge de cracking
+        ##"</span>);
+      <span class="hljs-built_in">puts</span>(<span
+        class="hljs-string">"############################################################\n"</span>);
+      <span class="hljs-built_in">printf</span>(<span class="hljs-string">"username: "</span>); <span
+        class="hljs-comment">// Program asks username</span>
+      pcVar1 = (<span class="hljs-keyword">char</span> *)getString(local_10); <span class="hljs-comment">// Gets user
+        input</span>
+      iVar2 = <span class="hljs-built_in">strcmp</span>(pcVar1,<span class="hljs-string">"john"</span>); <span
+        class="hljs-comment">// Compares user input with "john"</span>
+      <span class="hljs-keyword">if</span> (iVar2 == <span class="hljs-number">0</span>) {
+      <span class="hljs-built_in">printf</span>(<span class="hljs-string">"password: "</span>); <span
+        class="hljs-comment">// Asks password</span>
+      pcVar1 = (<span class="hljs-keyword">char</span> *)getString(pcVar1); <span class="hljs-comment">// Get user
+        input</span>
+      iVar2 = <span class="hljs-built_in">strcmp</span>(pcVar1,<span class="hljs-string">"the ripper"</span>); <span
+        class="hljs-comment">// Compare user input with "the ripper"</span>
+      <span class="hljs-keyword">if</span> (iVar2 == <span class="hljs-number">0</span>) {
+      <span class="hljs-built_in">printf</span>(<span class="hljs-string">"Bien joue, vous pouvez valider l\'epreuve
+        avec le mot de passe : %s !\n"</span>,<span class="hljs-string">"xxxxxxxxx"</span>); <span
+        class="hljs-comment">// And returns the flag</span>
+      }
+      <span class="hljs-keyword">else</span> {
+      <span class="hljs-built_in">puts</span>(<span class="hljs-string">"Bad password"</span>);
+      }
+      }
+      <span class="hljs-keyword">else</span> {
+      <span class="hljs-built_in">puts</span>(<span class="hljs-string">"Bad username"</span>);
+      }
+      <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;
+      }
+    </code></pre>
+  <p>So we found that username is <code>john</code>, password is <code>the ripper</code> and our flag is
+    <code>xxxxxxxxx</code>
+  </p>
+
+</div>
+
+<script>hljs.highlightAll();</script>

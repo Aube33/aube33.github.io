@@ -1,0 +1,66 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<style>
+  img {
+    max-width: 100%;
+  }
+</style>
+<div style="background-color: #ecc6a0; padding: 10px; border: 10px ridge lightblue;">
+  <h1 id="xss-server-side">XSS - Server Side</h1>
+  <h2 id="statement">Statement</h2>
+  <p>This platform for issuing certificates of participation has just gone live. The developers assure you that they
+    have followed best practices and escaped all user inputs before using them in their code...</p>
+  <p>The flag is located in the <code>/flag.txt</code> file.</p>
+  <h2 id="analyze">Analyze</h2>
+  <p><img src="/images/rootme/xss-server-side-1.png" alt="Home page, Root-Me attestations generator"
+      title="Home page, Root-Me attestations generator">
+    The website is an attestation generator, you enter something and it give you a certified PDF from Root-Me.</p>
+  <p><img src="/images/rootme/xss-server-side-2.png" alt="Generated pdf, Root-Me attestations generator"
+      title="Generated pdf, Root-Me attestations generator"></p>
+  <p>This is a classic case with PDF generators, bad escaped inputs. We need to break it down with custom HTML tag to
+    read the content of <strong>/flag.txt</strong>.</p>
+  <p>First, let&#39;s try with <code>&lt;b&gt;test&lt;/b&gt;</code> to verify if user inputs are really escaped.
+    <img src="/images/rootme/xss-server-side-3.png"
+      alt="Generated pdf with &lt;b&gt;test&lt;/b&gt;, Root-Me attestations generator"
+      title="Generated pdf with &lt;b&gt;test&lt;/b&gt;, Root-Me attestations generator">
+  </p>
+  <p>This doesn&#39;t work.</p>
+  <p>Let&#39;s explore other functionnalities of the website, we can Log-in and Sign up, let&#39;s try to generate a PDF
+    with a logged in account.</p>
+  <p>To Sign up it asks :</p>
+  <ul>
+    <li>Login</li>
+    <li>First Name</li>
+    <li>Last Name</li>
+    <li>Password</li>
+  </ul>
+  <p>Let&#39;s try with <u>test, test2, test3, test</u></p>
+  <p><img src="/images/rootme/xss-server-side-4.png"
+      alt="Generated pdf with test account, Root-Me attestations generator"
+      title="Generated pdf with test account, Root-Me attestations generator"></p>
+  <p>Our First name and Last name is displayed on the generated PDF when logged in, we can try to exploit these inputs.
+  </p>
+  <p>I created a new account with <code>&lt;b&gt;hey&lt;/b&gt;</code> as First name.</p>
+  <p><img src="/images/rootme/xss-server-side-5.png"
+      alt="Generated pdf with &lt;b&gt;hey&lt;/b&gt; first name account, Root-Me attestations generator"
+      title="Generated pdf with &lt;b&gt;hey&lt;/b&gt; first name account, Root-Me attestations generator"></p>
+  <p>It works !</p>
+  <h2 id="exploitation">Exploitation</h2>
+  <p>Now we need to exploit this to read <strong>/flag.txt</strong>
+    Here is my payload:</p>
+  <pre><code class="lang-html">&lt;svg <span class="hljs-attr">onload="var</span> <span class="hljs-attr">xhr</span> =
+      new XMLHttpRequest(); xhr.open('GET', '/flag.txt', <span class="hljs-literal">false</span>); xhr.send();
+      document.write(xhr.responseText);<span class="hljs-string">"&gt;</span>
+    </code></pre>
+  <p>It&#39;s a <code>&lt;svg&gt;</code> that execute JS code to read the content of <strong>/flag.txt</strong></p>
+  <p>I put the payload in the First name of a new account</p>
+  <p>Let&#39;s generated a new PDF, and we successfuly obtain the flag</p>
+  <p><code>*******************************</code></p>
+  <h2 id="how-does-it-work-">How does it work ?</h2>
+  <p>This exploit is called <strong>Template based injection</strong>, we send a payload to exploit the server side to
+    make a infested template (here a PDF).</p>
+
+</div>
+
+<script>hljs.highlightAll();</script>

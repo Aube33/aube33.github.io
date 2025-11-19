@@ -1,0 +1,127 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<style>
+  * {
+    color: white;
+  }
+</style>
+<div style="background-color: #6c7fc2; padding: 10px; border: 10px ridge black;">
+  <h1 id="ethereum-tutoreum">Ethereum - Tutoreum</h1>
+  <h2 id="statement">Statement</h2>
+  <p>An introduction to Ethereum smart contracts before getting to the heart of the matter.</p>
+  <p>Source code</p>
+  <pre><code class="lang-js"><span class="hljs-keyword">pragma</span> solidity ^<span class="hljs-number">0.5</span>.0;
+
+      contract Tutoreum {
+
+      <span class="hljs-built_in">string</span> <span class="hljs-keyword">public</span> key;
+      <span class="hljs-built_in">bool</span> <span class="hljs-keyword">public</span> locked = <span
+        class="hljs-literal">true</span>;
+
+      constructor(<span class="hljs-built_in">string</span> memory _key) <span class="hljs-keyword">public</span> {
+      key = _key;
+      }
+
+      <span class="hljs-built_in">function</span> own(<span class="hljs-built_in">string</span> memory _key) <span
+        class="hljs-keyword">public</span> {
+      <span class="hljs-keyword">if</span>(keccak256(bytes(key)) == keccak256(bytes(_key))) {
+      locked = <span class="hljs-literal">false</span>;
+      }
+      }
+
+      }
+    </code></pre>
+  <h2 id="analyze">Analyze</h2>
+  <p>Solidity is an OOP language. It&#39;s the primary language used in smart contracts on the Ethereum blockchain.</p>
+  <p>Let&#39;s analyze the code:</p>
+  <pre><code class="lang-js"><span class="hljs-keyword">pragma</span> solidity ^<span class="hljs-number">0.5</span>.0;
+
+      contract Tutoreum { <span class="hljs-comment">// Here we have the name of our contract</span>
+
+      <span class="hljs-comment">// Our attributes</span>
+      <span class="hljs-built_in">string</span> <span class="hljs-keyword">public</span> key;
+      <span class="hljs-built_in">bool</span> <span class="hljs-keyword">public</span> locked = <span
+        class="hljs-literal">true</span>;
+
+      <span class="hljs-comment">// Our constructor</span>
+      constructor(<span class="hljs-built_in">string</span> memory _key) <span class="hljs-keyword">public</span> {
+      key = _key;
+      }
+
+      <span class="hljs-comment">// Our methods</span>
+      <span class="hljs-built_in">function</span> own(<span class="hljs-built_in">string</span> memory _key) <span
+        class="hljs-keyword">public</span> {
+      <span class="hljs-keyword">if</span>(keccak256(bytes(key)) == keccak256(bytes(_key))) {
+      locked = <span class="hljs-literal">false</span>;
+      }
+      }
+
+      }
+    </code></pre>
+  <p>The objective is to change <code>locked</code> from <code>true</code> to <strong>false</strong>. We can see that
+    the function <code>own</code> is used for changing this <code>locked</code> attribute.</p>
+  <p>But <code>own</code> only works if the correct <code>key</code> is passed as an argument...</p>
+  <h2 id="exploitation">Exploitation</h2>
+  <p>⚠️ For this exercise, you need Metamask with <code>eth_sign</code> available and enabled. On Firefox I installed
+    <strong>v12.0.6</strong> (<a href="https://addons.mozilla.org/en-US/firefox/addon/ether-metamask/versions/">Firefox
+      Metamask History</a>)
+  </p>
+  <p>So, we need to retrieve this <code>key</code> attribute. Fortunately <code>key</code> is public ! We can get its
+    value from developer console.</p>
+  <p>Open Dev Console of your browser and type:</p>
+  <pre><code class="lang-js">&gt;&gt; await level
+
+      Object { <span class="hljs-string">constructor:</span> TruffleContract(), <span class="hljs-string">abi:</span>
+      (<span class="hljs-number">4</span>) […], <span class="hljs-string">contract:</span> {…}, <span
+        class="hljs-string">key:</span> contract(), <span class="hljs-string">locked:</span> contract(), <span
+        class="hljs-string">own:</span> contract(), <span class="hljs-string">sendTransaction:</span> contract(), <span
+        class="hljs-string">send:</span> send(value)
+      , <span class="hljs-string">allEvents:</span> BoundFunctionObject, <span class="hljs-string">address:</span> <span
+        class="hljs-string">"0x****************************************"</span>, … }
+      ​
+      <span class="hljs-string">abi:</span> Array(<span class="hljs-number">4</span>) [ {…}, {…}, {…}, … ]
+      ​
+      <span class="hljs-string">address:</span> <span
+        class="hljs-string">"0x****************************************"</span>
+      ​
+      <span class="hljs-string">allEvents:</span> BoundFunctionObject { … }
+      ​
+      <span class="hljs-string">constructor:</span> function TruffleContract()​
+      <span class="hljs-string">contract:</span> Object { <span class="hljs-string">_eth:</span> {…}, <span
+        class="hljs-string">transactionHash:</span> <span class="hljs-literal">null</span>, <span
+        class="hljs-string">address:</span> <span
+        class="hljs-string">"0x****************************************"</span>, … }
+      ​
+      <span class="hljs-string">key:</span> function contract()​
+      <span class="hljs-string">locked:</span> function contract()​
+      <span class="hljs-string">own:</span> function contract()​
+      <span class="hljs-string">send:</span> function send(value)​
+      <span class="hljs-string">sendTransaction:</span> function contract()
+      ​
+      <span class="hljs-string">transactionHash:</span> <span class="hljs-literal">null</span>
+      ​
+      &lt;prototype&gt;: Object { }
+    </code></pre>
+  <p>Everything in public is reachable, so <code>key</code> is reachable here:</p>
+  <pre><code class="lang-js">key: <span class="hljs-function"><span class="hljs-keyword">function</span> <span
+          class="hljs-title">contract</span><span class="hljs-params">()</span></span>​
+    </code></pre>
+  <p>All we have left to do is to call <code>own</code> with <code>level.key()</code> as an argument:</p>
+  <pre><code class="lang-js">&gt;&gt; <span class="hljs-keyword">await</span> level.own(<span
+        class="hljs-keyword">await</span> level.key())
+      (Transaction x confirmed !)
+    </code></pre>
+  <p>And once &quot;Check&quot; button clicked we get:</p>
+  <p><code>Well done! Flag for this level is: ***********</code></p>
+  <h2 id="how-does-it-work-">How does it work ?</h2>
+  <p>We can see that <code>level.key</code> is typed as function, this is because our Smart Contract is
+    <strong>stored</strong> and <strong>executed</strong> on Ethereum Virtual Machine (<a
+      href="https://ethereum.org/en/developers/docs/evm/">EVM</a>). These Virtual Machines executes our contract on
+    every nodes through Etheureum blockchain, call our attribute <code>key</code> cost &quot;gas fee&quot; for
+    preventing abuse, measuring the computational effort and fair transaction processing.
+  </p>
+
+</div>
+
+<script>hljs.highlightAll();</script>

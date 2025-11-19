@@ -1,0 +1,42 @@
+<style>
+  #goback,
+  #goforward {
+    cursor: pointer;
+  }
+</style>
+<header>
+  <table>
+    <tbody>
+      <tr>
+        <td>
+          <img id="goback" src="./images/gifs/arrow-left.gif" onclick="goBack()">
+        </td>
+        <td>
+          <a href="/" target="_top" style="text-decoration: underline; color: black; font-weight: bolder;">
+            <h1>Aube's home</h1>
+          </a>
+        </td>
+        <td>
+          <img id="goforward" src="./images/gifs/arrow-right.gif" onclick="goForward()">
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</header>
+<script>
+  const iframe = parent.document.getElementById("header");
+  const link = iframe.dataset.link;
+
+  function goBack() {
+    const frame = parent.document.getElementById(link);
+    if (frame && frame.contentWindow) {
+      frame.contentWindow.history.back();
+    }
+  }
+  function goForward() {
+    const frame = parent.document.getElementById(link);
+    if (frame && frame.contentWindow) {
+      frame.contentWindow.history.forward();
+    }
+  }
+</script>

