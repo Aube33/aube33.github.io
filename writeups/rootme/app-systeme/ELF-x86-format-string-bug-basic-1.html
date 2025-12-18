@@ -255,9 +255,7 @@
     </code></pre>
   <p>We see a lot of gibberish, but we can see the presence of environment variables (PWD, USER, etc.). However, there’s
     no readable trace of the contents of our .passwd file.
-    After some necessary thinking, it becomes clear that the file’s contents can’t be located directly on the stack,
-    it’s too dynamic, and more importantly, the code clearly uses a pointer.
-    So our target must be in the heap.</p>
+  </p>
   <img src="/images/gifs/tobecontinued.gif">
 
 </div>
