@@ -43,14 +43,14 @@ function randomInRange(min, max) {
 }
 
 function consumeMore() {
-  let words = ['CONSUME', 'BUY', 'LIKE', 'SCROLL', 'SCROLL', 'WASTE', 'KILL', 'KILL', 'SCROLL', 'SCROLL', 'WORK', 'HARDER', 'SLEEP', 'WORK', 'SLEEP', 'WORK', 'SCROLL', 'SCROLL', 'SLEEP', 'SKIP', 'CONSUME', 'IGNORE']
+  let words = ['HELLO']
   let consumerSize = 20 + (180 - 20) * (1 - Math.exp(-0.018 * lastConsumerPosition));
   let consume = document.createElement('h1');
 
   consume.innerText = words[randomInRange(0, words.length - 1)];
   consume.style.position = "fixed";
   consume.style.fontWeight = "bolder";
-  consume.style.backgroundColor = "red";
+  consume.style.backgroundColor = "#000000".replace(/0/g, function() { return (~~(Math.random() * 16)).toString(16); });
   consume.style.border = "2px solid black";
   consume.style.fontSize = `${consumerSize}px`;
 
@@ -62,7 +62,7 @@ function consumeMore() {
   let keepWatchingX = window.screen.width / 2;
   let keepWatchingY = window.screen.height / 3;
   do {
-    var posX = randomInRange(0, window.screen.width - width);
+    var posX = randomInRange(-20, window.screen.width - width);
     var posY = randomInRange(0, window.screen.height - consumerSize * 2);
   } while (
     posX >= keepWatchingX - watching - width &&
